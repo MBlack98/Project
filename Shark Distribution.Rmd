@@ -1,0 +1,107 @@
+---
+title: "SharkDistribution"
+author: "Max Schwarz"
+date: "12 July 2019"
+output: html_document
+---
+
+```{r load_libraries, include = FALSE}
+library(rgbif)
+library(tidyverse)
+library(maps)
+library(leaflet)
+library(raster)
+library(rgdal)
+library(magrittr)
+library(devtools)
+library(repurrrsive)
+```
+
+---
+# Mapping Endangered Shark Species Distribution \
+\
+
+## 1) Downloading Data from GBIF
+
+<!-- Will explain what I have done in this text chunk -->
+
+```{r dowload_data, include = FALSE}
+source("functions.R") #call functions from here
+
+#create vectors (sequence of data elements of same type) for all orders
+
+#Carcharhiniformes
+
+carc <- c('Mustelus fasciatus', 'Cephaloscyllium albipinnum', 'Isogomphodon oxyrhynchus', 'Glyphis garricki', 'Carcharhinus hemiodon', 'Glyphis gangeticus', 'Haploblepharus kistnasamyi', 'Sphyrna mokarran', 'Sphyrna lewini', 'Lamiopsis temminckii', 'Carcharhinus leiodon', 'Holohalaelurus punctatus', 'Mustelus schmitti', 'Holohalaelurus favus', 'Carcharhinus borneensis', 'Eusphyra blochii', 'Carcharhinus dussumieri', 'Glyphis glyphis', 'Hemitriakis leucoperiptera')
+
+#Orectolobiformes
+
+orec <- c('Rhincodon typus', 'Stegostoma fasciatum')
+
+#Squatiniformes
+
+squat <- c('Squatina guggenheim', 'Squatina squatina', 'Squatina formosa', 'Squatina oculata', 'Squatina occulta', 'Squatina argentina', 'Squatina aculeata')
+
+#Squaliformes
+
+squal <- c('Squalus chloroculus', 'Centrophorus harrissoni')
+
+#Lamniformes
+
+lamn <- c('Isurus paucus', 'Isurus oxyrinchus')
+
+#create a vector composed of all orders
+
+species <- c(carc, orec, squat, squal, lamn)
+
+#create a list called distributions, which will house all species data
+
+distributions <- list()
+ 
+for(sp in species) {
+  distributions[[sp]] <- import_data(sp)
+}
+
+#saving all data in distributions dataframe
+
+saveRDS(distributions, file = "shark_data.rds")
+
+# write.csv(distributions[["Mustelus fasciatus"]],'~/UNSW/Big Data/Project/Data/Shark Data/Mustelus_fasciatus.csv', row.names = TRUE)
+# write.csv(distributions[["Cephaloscyllium albipinnum"]],'~/UNSW/Big Data/Project/Data/Shark Data/Cephaloscyllium_albipinnum.csv', row.names = TRUE)
+
+```
+
+## 2) Reading in MPA shapefiles
+
+<!-- Will explain what I have done in this text chunk -->
+
+```{r import_shapefile, include = FALSE}
+#reading in the global MPA shapefile
+
+GMPA <- readOGR(dsn = "~/UNSW/Big Data/Project/Data/WDPA July 2019 MPAs", layer = "WDPA_Jul2019_marine-shapefile-polygons")
+
+```
+
+## 3) Creating distribution maps
+
+<!-- Will explain what I have done in this text chunk -->
+
+```{r distribution_maps, include = FALSE}
+source("functions.R")
+
+shark_map <- readRDS("shark_data.rds")
+
+purrr::map_dfr(shark_map, magrittr::extract, c("species_name", "latitude", "longitude"))
+
+# shark_map <- do.call(rbind, distributions) %>%
+  # as.data.frame
+
+# shark_map <- as.data.frame(unlist(distributions))
+
+#create a distribution map for each species
+
+# for(i in 1:length(distributions)) {
+  # distributions[[i]] <- create_map(i)
+# }
+```
+

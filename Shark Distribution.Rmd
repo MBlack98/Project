@@ -11,10 +11,9 @@ library(tidyverse)
 library(maps)
 library(leaflet)
 library(raster)
-library(rgdal)
-library(magrittr)
-library(devtools)
-library(repurrrsive)
+#library(rgdal)
+#library(devtools)
+#library(repurrrsive)
 ```
 
 ---
@@ -93,10 +92,6 @@ source("functions.R")
 distributions <- readRDS("Data/processed/shark_data.rds")
 distributions_all <- distributions %>% bind_rows()
 GMPA2 <- readRDS("Data/processed/gmpa2.rds")
-
-MPA_centre <- sf::st_read("Data/WDPA July 2019 MPAs/WDPA_Jul2019_marine-shapefile-polygons.shp")
-GMPA <- sf::read_sf(dsn = "Data/WDPA July 2019 MPAs", layer = "WDPA_Jul2019_marine-shapefile-polygons")
-
 ```
 
 Interactive using leaflet:
@@ -110,7 +105,7 @@ All species
 ```{r}
 
 distributions %>% bind_rows() %>% 
-		leaflet() %>%
+    leaflet() %>%
     addTiles() %>%
     addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, 
                      label = ~species_name, fillOpacity = 0.5)
@@ -124,7 +119,7 @@ Static maps using ggplot
 ```{r}
 world <- map_data("world")
 my_map <- 
-	ggplot() + geom_map(data=world, map=world,
+  ggplot() + geom_map(data=world, map=world,
                     aes(x=long, y=lat, map_id=region),
                     color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
 #       geom_sf(data = GMPA2 %>% slice(1:10), aes(colour="orange")) +
@@ -149,7 +144,7 @@ A function for plotting distributions:
 ```{r}
 plot_species_distn <- function(species_name, distributions) {
 world <- map_data("world")
-	ggplot() + geom_map(data=world, map=world,
+  ggplot() + geom_map(data=world, map=world,
                     aes(x=long, y=lat, map_id=region),
                     color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
        geom_point(data = distributions[[species_name]], aes(x = longitude, y = latitude))
@@ -160,7 +155,7 @@ plot_species_distn('Mustelus fasciatus', distributions)
 
 
 ggplot() + 
-	geom_map(data=world, map=world,
+  geom_map(data=world, map=world,
                     aes(x=long, y=lat, map_id=region),
                     color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
   geom_point(data = distributions_all, aes(x = longitude, y = latitude)) + 
@@ -173,9 +168,39 @@ Using leaflet on polygons:
 ```{r}
 
 leaflet(GMPA2 %>% slice(1:100)) %>% 
-	addTiles() %>% 
-	addPolygons()
+  addTiles() %>% 
+  addPolygons()
 
 ```
 
 
+Try creating polygon centres
+
+
+```{r}
+# Calculate centroids
+sf_cent <- st_centroid(GMPA2)
+
+world <- map_data("world")
+ggplot() + 
+  geom_map(data=world, map=world,
+                    aes(x=long, y=lat, map_id=region),
+                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
+  geom_point(data = distributions[[1]], aes(x = longitude, y = latitude)) + 
+  geom_sf(data = sf_cent, aes(colour="red"))
+```
+
+Areas of mpas
+
+```{r}
+# calculate areas
+areas <- st_area(GMPA2)
+```
+
+
+Crop to particular area (Australia)
+
+```{r}
+GMPA2_aus <- st_crop(GMPA2, xmin = 100, ymin = -50, xmax = 150, ymax = -25)
+
+```

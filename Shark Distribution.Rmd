@@ -11,6 +11,7 @@ library(tidyverse)
 library(maps)
 library(leaflet)
 library(raster)
+library(sf)
 #library(rgdal)
 #library(devtools)
 #library(repurrrsive)
@@ -173,23 +174,6 @@ leaflet(GMPA2 %>% slice(1:100)) %>%
 
 ```
 
-
-Try creating polygon centres
-
-
-```{r}
-# Calculate centroids
-sf_cent <- st_centroid(GMPA2)
-
-world <- map_data("world")
-ggplot() + 
-  geom_map(data=world, map=world,
-                    aes(x=long, y=lat, map_id=region),
-                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
-  geom_point(data = distributions[[1]], aes(x = longitude, y = latitude)) + 
-  geom_sf(data = sf_cent, aes(colour="red"))
-```
-
 Areas of mpas
 
 ```{r}
@@ -197,10 +181,64 @@ Areas of mpas
 areas <- st_area(GMPA2)
 ```
 
+Convert distributions to sf objects:
+```{r}
+distributions_all_sf <- st_as_sf(distributions_all, coords = c("longitude", "latitude"), 
+                 crs = 4326,  agr = "constant")
+```
+
+
+
+Polygon centres
+
+```{r}
+# Calculate centroids
+GMPA2_c <- st_centroid(GMPA2)
+
+world <- map_data("world")
+ggplot() + 
+  geom_map(data=world, map=world,
+                    aes(x=long, y=lat, map_id=region),
+                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
+  geom_sf(data = GMPA2_c, aes(colour="blue")) +
+  geom_point(data = distributions_all_sf, aes(col="organge")) 
+ 
+```
 
 Crop to particular area (Australia)
 
 ```{r}
 GMPA2_aus <- st_crop(GMPA2, xmin = 100, ymin = -50, xmax = 150, ymax = -25)
+distributions_aus <- st_crop(distributions_all_sf, xmin = 100, ymin = -50, xmax = 150, ymax = -25)
+
+# centre of mpa
+
+GMPA2_aus_c <- st_centroid(GMPA2_aus)
 
 ```
+
+```{r}
+
+ggplot(GMPA2_aus_c) + 
+  geom_sf() + 
+  geom_sf(data = distributions_aus, aes(col="organge"))
+
+```
+
+
+Some plots with Mapview
+
+```{r}
+library(mapview)
+mapview(distributions_aus, layer.name = "sharks") + mapview(GMPA2_aus_c, layer.name= "MPAs", color="orange")
+
+```
+
+
+Check distance between each point and centroid of closest MPAs
+
+```{r}
+nearest_mpa <- st_nearest_points(distributions_aus, GMPA2_aus_c)
+distances <- st_length(nearest_mpa)
+```
+

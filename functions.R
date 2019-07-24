@@ -26,10 +26,26 @@ import_data <- function(species_name) {
   species.occ %>%
     mutate(species_name = species1$canonicalName[1], key = taxonKey) %>%
     dplyr::select(species_name, key, latitude = decimalLatitude, longitude = decimalLongitude) %>%
-    tibble()
+    as_tibble()
 }
 
-create_map <- function(species_name) {
+create_leaflet_map <- function(species_name, distributions) {
+  # 
+  # Create a map for each species
+  #
+  # Argument:
+  # ---
+  # species_name: Species name provided
+  #
+  leaflet(data = distributions[[species_name]]) %>%
+    addTiles() %>%
+    addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, 
+                     color = "orange", fillOpacity = 0.5)
+  }
+
+
+
+create_leaflet_map <- function(species_name, distributions) {
   # 
   # Create a map for each species
   #
@@ -41,5 +57,4 @@ create_map <- function(species_name) {
     addTiles() %>%
     addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, 
                      color = "orange", fillOpacity = 0.5)
-  }
-  
+}

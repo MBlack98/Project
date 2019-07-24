@@ -64,12 +64,9 @@ for(sp in species) {
 
 #saving all data in distributions dataframe
 
-saveRDS(distributions, file = "shark_data.rds")
-
-# write.csv(distributions[["Mustelus fasciatus"]],'~/UNSW/Big Data/Project/Data/Shark Data/Mustelus_fasciatus.csv', row.names = TRUE)
-# write.csv(distributions[["Cephaloscyllium albipinnum"]],'~/UNSW/Big Data/Project/Data/Shark Data/Cephaloscyllium_albipinnum.csv', row.names = TRUE)
-
+saveRDS(distributions, file = "Data/processed/shark_data.rds")
 ```
+
 
 ## 2) Reading in MPA shapefiles
 
@@ -78,30 +75,107 @@ saveRDS(distributions, file = "shark_data.rds")
 ```{r import_shapefile, include = FALSE}
 #reading in the global MPA shapefile
 
-GMPA <- readOGR(dsn = "~/UNSW/Big Data/Project/Data/WDPA July 2019 MPAs", layer = "WDPA_Jul2019_marine-shapefile-polygons")
+GMPA <- sf::read_sf(dsn = "Data/WDPA July 2019 MPAs", layer = "WDPA_Jul2019_marine-shapefile-polygons")
+GMPA2 <- GMPA %>% ggplot2::fortify()
+
+saveRDS(GMPA2, "Data/processed/gmpa2.rds")
+
 
 ```
+
 
 ## 3) Creating distribution maps
 
-<!-- Will explain what I have done in this text chunk -->
+Load data
 
-```{r distribution_maps, include = FALSE}
+```{r}
 source("functions.R")
+distributions <- readRDS("Data/processed/shark_data.rds")
+distributions_all <- distributions %>% bind_rows()
+GMPA2 <- readRDS("Data/processed/gmpa2.rds")
 
-shark_map <- readRDS("shark_data.rds")
+MPA_centre <- sf::st_read("Data/WDPA July 2019 MPAs/WDPA_Jul2019_marine-shapefile-polygons.shp")
+GMPA <- sf::read_sf(dsn = "Data/WDPA July 2019 MPAs", layer = "WDPA_Jul2019_marine-shapefile-polygons")
 
-purrr::map_dfr(shark_map, magrittr::extract, c("species_name", "latitude", "longitude"))
-
-# shark_map <- do.call(rbind, distributions) %>%
-  # as.data.frame
-
-# shark_map <- as.data.frame(unlist(distributions))
-
-#create a distribution map for each species
-
-# for(i in 1:length(distributions)) {
-  # distributions[[i]] <- create_map(i)
-# }
 ```
+
+Interactive using leaflet:
+
+```{r}
+create_leaflet_map("Mustelus fasciatus", distributions)
+create_leaflet_map("Cephaloscyllium albipinnum", distributions)
+```
+
+All species
+```{r}
+
+distributions %>% bind_rows() %>% 
+		leaflet() %>%
+    addTiles() %>%
+    addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, 
+                     label = ~species_name, fillOpacity = 0.5)
+
+#(how to colour by species?)
+```
+
+
+Static maps using ggplot
+
+```{r}
+world <- map_data("world")
+my_map <- 
+	ggplot() + geom_map(data=world, map=world,
+                    aes(x=long, y=lat, map_id=region),
+                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
+#       geom_sf(data = GMPA2 %>% slice(1:10), aes(colour="orange")) +
+       geom_point(data = distributions[["Cephaloscyllium albipinnum"]], aes(x = longitude, y = latitude))
+```
+
+Plot of an MPA:
+```{r}
+ggplot() + geom_sf(data = GMPA2 %>% slice(1), aes(colour="orange"))
+```
+
+Plot of two MPAs:
+
+```{r}
+ggplot() + geom_sf(data = GMPA2 %>% slice(1:2), aes(colour="orange"))
+
+```
+
+
+A function for plotting distributions:
+
+```{r}
+plot_species_distn <- function(species_name, distributions) {
+world <- map_data("world")
+	ggplot() + geom_map(data=world, map=world,
+                    aes(x=long, y=lat, map_id=region),
+                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
+       geom_point(data = distributions[[species_name]], aes(x = longitude, y = latitude))
+     }
+
+plot_species_distn("Cephaloscyllium albipinnum", distributions)
+plot_species_distn('Mustelus fasciatus', distributions)
+
+
+ggplot() + 
+	geom_map(data=world, map=world,
+                    aes(x=long, y=lat, map_id=region),
+                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
+  geom_point(data = distributions_all, aes(x = longitude, y = latitude)) + 
+  facet_wrap(~species_name)
+  
+```
+
+Using leaflet on polygons:
+
+```{r}
+
+leaflet(GMPA2 %>% slice(1:100)) %>% 
+	addTiles() %>% 
+	addPolygons()
+
+```
+
 

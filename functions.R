@@ -40,21 +40,5 @@ create_leaflet_map <- function(species_name, distributions) {
   leaflet(data = distributions[[species_name]]) %>%
     addTiles() %>%
     addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, 
-                     color = "orange", fillOpacity = 0.5)
+                     color = "gray13", fillOpacity = 0.5)
   }
-
-
-
-create_leaflet_map <- function(species_name, distributions) {
-  # 
-  # Create a map for each species
-  #
-  # Argument:
-  # ---
-  # species_name: Species name provided
-  #
-  leaflet(data = distributions[[species_name]][["."]]) %>%
-    addTiles() %>%
-    addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, 
-                     color = "orange", fillOpacity = 0.5)
-}

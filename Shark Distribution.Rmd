@@ -10,9 +10,11 @@ library(rgbif)
 library(tidyverse)
 library(maps)
 library(leaflet)
-library(raster)
 library(sf)
-#library(rgdal)
+library(rgdal)
+library(ggmap)
+library(maptools)
+library(raster)
 #library(devtools)
 #library(repurrrsive)
 ```
@@ -95,11 +97,29 @@ distributions_all <- distributions %>% bind_rows()
 GMPA2 <- readRDS("Data/processed/gmpa2.rds")
 ```
 
+Clean up data
+
+```{r}
+distributions[[1]] <- distributions[["Mustelus fasciatus"]][-c(1:2),]
+distributions[[2]] <- distributions[["Cephaloscyllium albipinnum"]][-c(74, 76),]
+distributions[[4]] <- distributions[["Glyphis garricki"]][-c(17:19, 21),]
+
+min_lat <- min(distributions[[4]][,3])
+max_lat <- max(distributions[[4]][,3])
+min_lng <- min(distributions[[4]][,4])
+max_lng <- max(distributions[[4]][,4])
+
+saveRDS(distributions, "Data/processed/updated_shark_data.rds")
+```
+
 Interactive using leaflet:
 
 ```{r}
+source("functions.R")
 create_leaflet_map("Mustelus fasciatus", distributions)
 create_leaflet_map("Cephaloscyllium albipinnum", distributions)
+create_leaflet_map("Isogomphodon oxyrhynchus", distributions)
+create_leaflet_map("Glyphis garricki", distributions)
 ```
 
 All species
@@ -118,18 +138,25 @@ distributions %>% bind_rows() %>%
 Static maps using ggplot
 
 ```{r}
-world <- map_data("world")
+brazil_region <- borders("world", region = c("Brazil", "Uruguay", "Argentina"), fill = "grey70", colour = "black")
+
+ggplot() + brazil_region + theme_bw() + xlab("Longitude") + ylab("Latitude") + 
+  theme(panel.border = element_blank(), panel.grid.major = element_line(colour = "grey80"), panel.grid.minor = element_blank()) +
+       geom_point(data = distributions[["Mustelus fasciatus"]], aes(x = longitude, y = latitude))
+
+
 my_map <- 
   ggplot() + geom_map(data=world, map=world,
                     aes(x=long, y=lat, map_id=region),
-                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
+                    color="white", fill="#7f7f7f", size=0.05) +
 #       geom_sf(data = GMPA2 %>% slice(1:10), aes(colour="orange")) +
-       geom_point(data = distributions[["Cephaloscyllium albipinnum"]], aes(x = longitude, y = latitude))
+       geom_point(data = distributions[["Mustelus fasciatus"]], aes(x = longitude, y = latitude))
+my_map
 ```
 
 Plot of an MPA:
 ```{r}
-ggplot() + geom_sf(data = GMPA2 %>% slice(1), aes(colour="orange"))
+ggplot() + geom_sf(data = ABNJ_MPAs, aes(colour="orange"))
 ```
 
 Plot of two MPAs:
@@ -187,8 +214,6 @@ distributions_all_sf <- st_as_sf(distributions_all, coords = c("longitude", "lat
                  crs = 4326,  agr = "constant")
 ```
 
-
-
 Polygon centres
 
 ```{r}
@@ -225,20 +250,231 @@ ggplot(GMPA2_aus_c) +
 
 ```
 
-
 Some plots with Mapview
 
 ```{r}
-library(mapview)
 mapview(distributions_aus, layer.name = "sharks") + mapview(GMPA2_aus_c, layer.name= "MPAs", color="orange")
 
 ```
-
 
 Check distance between each point and centroid of closest MPAs
 
 ```{r}
 nearest_mpa <- st_nearest_points(distributions_aus, GMPA2_aus_c)
 distances <- st_length(nearest_mpa)
+```
+
+Make subsets of GMPA2 data
+
+```{r}
+# Selecting only important column names
+
+GMPA2 <- GMPA2 %>% dplyr::select(NAME, DESIG_ENG, MARINE, REP_M_AREA, STATUS, STATUS_YR, PARENT_ISO)
+
+# Looking for data entries with MARINE value 0 -> 0 = 100% terrestrial PA
+
+PA <- GMPA2 %>% dplyr::select(MARINE)
+PA$geometry <- NULL
+PA <- PA %>% dplyr::count(MARINE)
+
+# Removing values of 0 in MARINE column (0 = 100% terrestrial PA)
+
+GMPA2 <- subset(GMPA2, MARINE != 0)
+saveRDS(GMPA2, "Data/processed/gmpa2_marine_only.rds")
+GMPA2 <- readRDS("Data/processed/gmpa2_marine_only.rds")
+
+# Creating subsets of data - to make things more manageable
+
+tempGMPA2 <- head(GMPA2, n = 100)
+
+sub01 <- GMPA2[1:1000,]
+sub02 <- GMPA2[1001:2000,]
+sub03 <- GMPA2[2001:3000,]
+sub04 <- GMPA2[3001:4000,]
+sub05 <- GMPA2[4001:5000,]
+sub06 <- GMPA2[5001:6000,]
+sub07 <- GMPA2[6001:7000,]
+sub08 <- GMPA2[7001:8000,]
+sub09 <- GMPA2[8001:9000,]
+sub10 <- GMPA2[9001:10000,]
+sub11 <- GMPA2[10001:11000,]
+sub12 <- GMPA2[11001:12000,]
+sub13 <- GMPA2[12001:13000,]
+sub14 <- GMPA2[13001:14000,]
+sub15 <- GMPA2[14001:14400,]
+
+# Counting countries - useful for country specific subsets
+
+countries_name <- GMPA2 %>% dplyr::select(PARENT_ISO)
+countries_name$geometry <- NULL
+countries_name <- countries_name %>% dplyr::count(PARENT_ISO)
+saveRDS(countries_name, "Data/processed/countries.rds")
+countries_name <- readRDS("Data/processed/countries.rds")
+
+# Creating subsets of data corresponding to each country (PARENT_ISO)
+
+ABNJ_MPAs <- sub01 %>% filter(PARENT_ISO == "ABNJ")
+saveRDS(ABNJ_MPAs, file = "Data/MPAs by country/ABNJ_MPAs.rds")
+
+# Mustelus fasciatus regions
+
+ARG_MPAs1 <- sub09 %>% filter(PARENT_ISO == "ARG")
+ARG_MPAs2 <- sub10 %>% filter(PARENT_ISO == "ARG")
+ARG_MPAs <- rbind(ARG_MPAs1, ARG_MPAs2)
+saveRDS(ARG_MPAs, file = "Data/MPAs by country/ARG_MPAs.rds")
+
+BRA_MPAs1 <- sub02 %>% filter(PARENT_ISO == "BRA")
+BRA_MPAs2 <- sub09 %>% filter(PARENT_ISO == "BRA")
+BRA_MPAs3 <- sub10 %>% filter(PARENT_ISO == "BRA")
+BRA_MPAs <- rbind(BRA_MPAs1, BRA_MPAs2, BRA_MPAs3)
+saveRDS(BRA_MPAs, file = "Data/MPAs by country/BRA_MPAs.rds")
+
+URY_MPAs <- sub05 %>% filter(PARENT_ISO == "URY")
+saveRDS(URY_MPAs, file = "Data/MPAs by country/URY_MPAs.rds")
+
+ARG_MPAs <- readRDS("Data/MPAs by country/ARG_MPAs.rds")
+BRA_MPAs <- readRDS("Data/MPAs by country/BRA_MPAs.rds")
+URY_MPAs <- readRDS("Data/MPAs by country/URY_MPAs.rds")
+Mus_MPAs <- rbind(ARG_MPAs, BRA_MPAs, URY_MPAs)
+saveRDS(Mus_MPAs, file = "Data/Final MPAs/Mus_MPAs.rds")
+
+# Cephaloscyllium albipinnum region
+
+AUS_MPAs1 <- sub01 %>% filter(PARENT_ISO == "AUS")
+AUS_MPAs2 <- sub02 %>% filter(PARENT_ISO == "AUS")
+AUS_MPAs3 <- sub03 %>% filter(PARENT_ISO == "AUS")
+AUS_MPAs4 <- sub04 %>% filter(PARENT_ISO == "AUS")
+AUS_MPAs <- rbind(AUS_MPAs1, AUS_MPAs2, AUS_MPAs3, AUS_MPAs4)
+saveRDS(AUS_MPAs, file = "Data/MPAs by country/AUS_MPAs.rds")
+saveRDS(AUS_MPAs, file = "Data/Final MPAs/Cep_MPAs.rds")
+
+# Isogomphodon oxyrhynchus region
+
+SUR_MPAs <- sub04 %>% filter(PARENT_ISO == "SUR")
+saveRDS(SUR_MPAs, "Data/MPAs by country/SUR_MPAs.rds")
+
+TTO_MPAs <- sub04 %>% filter(PARENT_ISO == "TTO")
+saveRDS(TTO_MPAs, "Data/MPAs by country/TTO_MPAs.rds")
+
+VEN_MPAs <- sub06 %>% filter(PARENT_ISO == "VEN")
+saveRDS(VEN_MPAs, "Data/MPAs by country/VEN_MPAs.rds")
+
+Iso_MPAs <- rbind(SUR_MPAs, TTO_MPAs, VEN_MPAs)
+saveRDS(Iso_MPAs, "Data/Final MPAs/Iso_MPAs.rds")
+
+# Glyphis garricki region (RIVER SHARK)
+
+# Uses AUS_MPAs
+
+PNG_MPAs <- sub04 %>% filter(PARENT_ISO == "PNG")
+saveRDS(PNG_MPAs, "Data/MPAs by country/PNG_MPAs.rds")
+
+Gly_MPAs <- rbind(AUS_MPAs, PNG_MPAs)
+saveRDS(Gly_MPAs, "Data/Final MPAs/Gly_MPAs.rds")
+
+CHL_MPAs1 <- sub10 %>% filter(PARENT_ISO == "CHL")
+CHL_MPAs2 <- sub15 %>% filter(PARENT_ISO == "CHL")
+CHL_MPAs <- rbind(CHL_MPAs1, CHL_MPAs2)
+saveRDS(CHL_MPAs, file = "Data/MPAs by country/CHL_MPAs.rds")
+
+FIN_MPAs <- sub01 %>% filter(PARENT_ISO == "FIN")
+
+NZL_MPAs <- sub01 %>% filter(PARENT_ISO == "NZL")
+```
+
+Create maps of specific regions
+
+```{r}
+library(rmapshaper)
+
+CHL_MPAs <- readRDS("Data/MPAs by country/CHL_MPAs.rds")
+leaflet(CHL_MPAs) %>% 
+  addTiles() %>% 
+  addPolygons()
+
+ABNJ_MPAs <- readRDS("Data/MPAs by country/ABNJ_MPAs.rds")
+simplified <- rmapshaper::ms_simplify(ABNJ_MPAs)
+leaflet() %>% 
+  addTiles() %>% 
+  addPolygons(data = simplified, color = "#444444", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.5, fillColor = "gray30") %>%
+  addCircleMarkers(data = distributions[["Mustelus fasciatus"]], lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, color = "orange", fillOpacity = 0.5)
+
+```
+
+Final Maps
+
+```{r}
+library(rmapshaper)
+# simplified <- rmapshaper::ms_simplify()
+
+# Mustelus fasciatus map
+
+Mus_MPAs <- readRDS("Data/Final MPAs/Mus_MPAs.rds")
+
+map01 <-
+leaflet(options = leafletOptions(zoomControl = FALSE, minZoom = 5)) %>% 
+  addTiles() %>%
+  addPolygons(data = Mus_MPAs, color = "gray", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.5, fillColor = "tomato") %>%
+  addCircleMarkers(data = distributions[["Mustelus fasciatus"]], lat = ~latitude, lng = ~longitude, radius = 5, weight = 3, stroke = TRUE, color = "black", fillOpacity = 0.8) %>%
+  addMiniMap(width = 100, height = 100) %>%
+  setMaxBounds(lng1 = -60, lat1 = -40, lng2 = -50, lat2 = -29)
+
+# Cephaloscyllium albipinnum map
+
+AUS_MPAs <- readRDS("Data/Final MPAs/Cep_MPAs.rds")
+
+map02 <-
+leaflet(options = leafletOptions(zoomControl = FALSE, minZoom = 5)) %>% 
+  addTiles() %>%
+  addPolygons(data = AUS_MPAs, color = "gray", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.5, fillColor = "tomato") %>%
+  addCircleMarkers(data = distributions[["Cephaloscyllium albipinnum"]], lat = ~latitude, lng = ~longitude, radius = 5, weight = 3, stroke = TRUE, color = "black", fillOpacity = 0.8) %>%
+  addMiniMap(position = "bottomleft", width = 100, height = 100) %>%
+  setMaxBounds(lng1 = 127, lat1 = -43, lng2 = 152, lat2 = -34)
+
+# Isogomphodon oxyrhynchus map
+
+Iso_MPAs <- readRDS("Data/Final MPAs/Iso_MPAs.rds")
+
+map03 <-
+leaflet(options = leafletOptions(zoomControl = FALSE, minZoom = 5)) %>% 
+  addTiles() %>%
+  addPolygons(data = Iso_MPAs, color = "gray", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.5, fillColor = "tomato") %>%
+  addCircleMarkers(data = distributions[["Isogomphodon oxyrhynchus"]], lat = ~latitude, lng = ~longitude, radius = 5, weight = 3, stroke = TRUE, color = "black", fillOpacity = 0.8) %>%
+  addMiniMap(position = "topright", width = 100, height = 100) %>%
+  setMaxBounds(lng1 = -63, lat1 = 3, lng2 = -51, lat2 = 12)
+
+# Glyphis garricki map
+
+Gly_MPAs <- readRDS("Data/Final MPAs/Gly_MPAs.rds")
+
+map04 <-
+leaflet(options = leafletOptions(zoomControl = FALSE, minZoom = 5)) %>% 
+  addTiles() %>%
+  addPolygons(data = Gly_MPAs, color = "gray", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.5, fillColor = "tomato") %>%
+  addCircleMarkers(data = distributions[["Glyphis garricki"]], lat = ~latitude, lng = ~longitude, radius = 5, weight = 3, stroke = TRUE, color = "black", fillOpacity = 0.8) %>%
+  addMiniMap(position = "topleft", width = 100, height = 100) %>%
+  setMaxBounds(lng1 = 122, lat1 = -18, lng2 = 146, lat2 = -6)
+
+```
+
+Heat map test:
+
+```{r}
+install.packages("leaflet.extras")
+library(leaflet.extras)
+
+write.csv(distributions[[1]], "Data/Shark Data/Mustelus_fasciatus1.csv")
+
+test1 <- read.csv("Data/Shark Data/Mustelus_fasciatus.csv")
+test2 <- distributions[[2]]
+
+leaflet() %>%
+  addTiles() %>%
+  addHeatmap(data = test2, lng = ~longitude, lat = ~latitude, blur = 50, gradient = "YlOrRd")
 ```
 

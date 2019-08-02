@@ -575,7 +575,6 @@ Density ggplot test:
 ```{r}
 install.packages("hexbin")
 
-register_google(key = "AIzaSyDCnDtlJpnm4l9EVnkCwPWLbtFlwhH2Lhs")
 basemap <- get_map(location = c(left = 127, bottom = -44, right = 152, top = -32.5), maptype = "roadmap", source = "google", force = TRUE)
 
 test <- distributions[[3]] %>% 

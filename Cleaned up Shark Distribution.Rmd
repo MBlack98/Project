@@ -210,3 +210,14 @@ map07 <- create_final_map("Haploblepharus kistnasamyi", distributions, Hap_MPAs,
 #Species 8: Sphyrna mokarran
 ```
 
+## 4) Analysis
+<!-- In this secion, the centroids of all MPAs are plotted to measure the distance of all distribution points to their nearest MPA. Species, that on average are further away from MPAs are potentially less protected. -->
+
+Get centroids of all MPAs
+```{r get_centroids, include = FALSE}
+GMPA2_centroid <- st_centroid(GMPA2)
+saveRDS(GMPA2_centroid, "Data/processed/gmpa2_centroid.rds")
+
+GMPA2_centroid <- readRDS("Data/processed/gmpa2_centroid.rds")
+```
+

@@ -82,8 +82,71 @@ GMPA2 <- GMPA %>% ggplot2::fortify()
 
 saveRDS(GMPA2, "Data/processed/gmpa2.rds")
 
+GMPA2 <- readRDS("Data/processed/gmpa2.rds")
+```
+
+## Challenge 1: Subset MPA object without calling filter on the whole thing, because this crashes Max's computer
+
+To do this create a version without geometries. We can use that to find the row numbers we want to extract
+
+```{r}
+GMPA2_index <- readRDS("Data/processed/gmpa2_marine_only.rds")
+GMPA2_index$geometry <- NULL
+saveRDS(GMPA2_index, "Data/processed/gmpa2_index.rds")
+```
+
+use the small index to more efficiently sample the GMPA datasets:
+
+```{r}
+GMPA2_index %>% filter(PARENT_ISO == "AUS")
+```
+
+we want the row numbers for these:
+
+```{r}
+i <- which(GMPA2_index$PARENT_ISO == "AUS") 
+
+AUS_MPAs <- GMPA2[i, ]
+```
+
+```{r}
+library(leaflet)
+
+leaflet() %>% 
+  addTiles() %>% 
+  addPolygons(data=AUS_MPAs, color = "grey", fillColor = "orange")
+```
+
+```{r}
+leaflet() %>% 
+  addTiles() %>% 
+  addPolygons(data=one_mpa, color = "grey", fillColor = "orange")
+```
+
+## Challenge 2: Get centroids of all MPAS
+
+```{r}
+GMPA2 <- readRDS("Data/processed/gmpa2_marine_only.rds")
+
+GMPA2_centroid <- st_centroid(GMPA2)
+saveRDS(GMPA2_centroid, "Data/processed/gmpa2_centroid.rds")
+
+GMPA2_centroid <- readRDS("Data/processed/gmpa2_centroid.rds")
 
 ```
+
+
+Check by plotting:
+```{r}
+world <- map_data("world")
+ggplot() + 
+  geom_map(data=world, map=world,
+                    aes(x=long, y=lat, map_id=region),
+                    color="white", fill="#7f7f7f", size=0.05, alpha=1/4) +
+  geom_sf(data = GMPA_centroid, aes(colour="blue"))
+ 
+```
+
 
 
 ## 3) Creating distribution maps

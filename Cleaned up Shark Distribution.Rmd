@@ -1,0 +1,212 @@
+---
+title: "Cleaned up Shark Distribution"
+author: "Max Schwarz"
+date: "31 July 2019"
+output: html_document
+---
+```{r load_libraries, include = FALSE}
+library(rgbif)
+library(tidyverse)
+library(maps)
+library(leaflet)
+library(sf)
+library(rgdal)
+library(ggmap)
+library(maptools)
+library(raster)
+library(rmapshaper)
+
+```
+
+## 1) Downloading Data from GBIF
+
+<!-- Will explain what I have done in this text chunk -->
+
+```{r dowload_data, include = FALSE}
+source("functions.R") #call functions from here
+
+#create vectors (sequence of data elements of same type) for all orders
+
+#Carcharhiniformes
+
+carc <- c('Mustelus fasciatus', 'Cephaloscyllium albipinnum', 'Isogomphodon oxyrhynchus', 'Glyphis garricki', 'Carcharhinus hemiodon', 'Glyphis gangeticus', 'Haploblepharus kistnasamyi', 'Sphyrna mokarran', 'Sphyrna lewini', 'Lamiopsis temminckii', 'Carcharhinus leiodon', 'Holohalaelurus punctatus', 'Mustelus schmitti', 'Holohalaelurus favus', 'Carcharhinus borneensis', 'Eusphyra blochii', 'Carcharhinus dussumieri', 'Glyphis glyphis', 'Hemitriakis leucoperiptera')
+
+#Orectolobiformes
+
+orec <- c('Rhincodon typus', 'Stegostoma fasciatum')
+
+#Squatiniformes
+
+squat <- c('Squatina guggenheim', 'Squatina squatina', 'Squatina formosa', 'Squatina oculata', 'Squatina occulta', 'Squatina argentina', 'Squatina aculeata')
+
+#Squaliformes
+
+squal <- c('Squalus chloroculus', 'Centrophorus harrissoni')
+
+#Lamniformes
+
+lamn <- c('Isurus paucus', 'Isurus oxyrinchus')
+
+#create a vector composed of all orders
+
+species <- c(carc, orec, squat, squal, lamn)
+
+#create a list called distributions, which will house all species data
+
+distributions <- list()
+ 
+for(sp in species) {
+  distributions[[sp]] <- import_data(sp)
+}
+
+#saving all data in distributions dataframe
+
+saveRDS(distributions, file = "Data/processed/shark_data.rds")
+```
+
+## 2) Reading in MPA shapefiles
+
+<!-- Will explain what I have done in this text chunk -->
+
+```{r import_shapefile, include = FALSE}
+#reading in the global MPA shapefile
+
+GMPA <- sf::read_sf(dsn = "Data/WDPA July 2019 MPAs", layer = "WDPA_Jul2019_marine-shapefile-polygons")
+GMPA2 <- GMPA %>% ggplot2::fortify()
+
+saveRDS(GMPA2, "Data/processed/gmpa2.rds")
+```
+
+## 3) Creating distribution maps
+
+Load data:
+```{r import_data, include = FALSE}
+distributions <- readRDS("Data/processed/updated_shark_data.rds")
+GMPA2 <- readRDS("Data/processed/gmpa2_marine_only.rds")
+```
+
+Create maps showing species distribution:
+```{r distribution, include = FALSE}
+#Useful for showing which countries (and therfore MPAs) each species inhabits
+source("functions.R")
+create_leaflet_map("Mustelus fasciatus", distributions)
+create_leaflet_map("Cephaloscyllium albipinnum", distributions)
+create_leaflet_map("Isogomphodon oxyrhynchus", distributions)
+create_leaflet_map("Glyphis garricki", distributions)
+create_leaflet_map("Carcharhinus hemiodon", distributions)
+create_leaflet_map("Glyphis gangeticus", distributions)
+create_leaflet_map("Haploblepharus kistnasamyi", distributions)
+create_leaflet_map("Sphyrna mokarran", distributions)
+```
+
+Clean up data:
+```{r clean_data, include = FALSE}
+#removing rows with discrepancies from each species dataframe 
+
+distributions[[1]] <- distributions[["Mustelus fasciatus"]][-c(1:2, 7),]
+distributions[[2]] <- distributions[["Cephaloscyllium albipinnum"]][-c(74, 76),]
+distributions[[4]] <- distributions[["Glyphis garricki"]][-c(17:19, 21),]
+distributions[[5]] <- distributions[["Carcharhinus hemiodon"]][-c(1, 6:8, 11),]
+distributions[[6]] <- distributions[["Glyphis gangeticus"]][-c(3:4),]
+distributions[[7]] <- distributions[["Haploblepharus kistnasamyi"]][-c(21),]
+
+#save the changes in an updated file
+
+saveRDS(distributions, "Data/processed/updated_shark_data.rds")
+
+#Cleaning MPA data
+#selecting only important column names
+
+GMPA2 <- GMPA2 %>% dplyr::select(NAME, DESIG_ENG, MARINE, REP_M_AREA, STATUS, STATUS_YR, PARENT_ISO)
+
+#looking for data entries with MARINE value 0 -> 0 = 100% terrestrial PA
+
+PA <- GMPA2 %>% dplyr::select(MARINE)
+PA$geometry <- NULL
+PA <- PA %>% dplyr::count(MARINE)
+
+#removing values of 0 in MARINE column (0 = 100% terrestrial PA)
+
+GMPA2 <- subset(GMPA2, MARINE != 0)
+saveRDS(GMPA2, "Data/processed/gmpa2_marine_only.rds")
+GMPA2 <- readRDS("Data/processed/gmpa2_marine_only.rds")
+```
+
+Create subsets of large MPA data:
+```{r data_subsets, include = FALSE}
+#Creating subsets of data - to make things more manageable
+
+#Create dataset without geometries -> use this to find the row numbers to extract
+
+GMPA2_index <- readRDS("Data/processed/gmpa2_marine_only.rds")
+GMPA2_index$geometry <- NULL
+saveRDS(GMPA2_index, "Data/processed/gmpa2_index.rds")
+GMPA2_index <- readRDS("Data/processed/gmpa2_index.rds")
+
+#Use the small index to more efficiently sample the GMPA datasets
+
+GMPA2_index %>% filter(PARENT_ISO == "AUS")
+
+#Find row numbers for queried search (single country) -> saved as Species_MPAs
+
+i <- which(GMPA2_index$PARENT_ISO == "ZAF") 
+
+Hap_MPAs <- GMPA2[i, ]
+saveRDS(Hap_MPAs, "Data/Final MPAs/Hap_MPAs.rds")
+
+#Find row numbers for queried search (multiple countries) -> saved as Species_MPAs
+
+ISOs <- c("IND", "LKA", "BGD", "MMR")
+i <- which(GMPA2_index$PARENT_ISO %in% ISOs)
+
+Gly_gan_MPAs <- GMPA2[i, ]
+saveRDS(Gly_gan_MPAs, "Data/Final MPAs/Gly_gan_MPAs.rds")
+
+#Counting countries - useful for cross referencing
+
+countries_name <- GMPA2_index %>% dplyr::select(PARENT_ISO)
+countries_name <- countries_name %>% dplyr::count(PARENT_ISO)
+saveRDS(countries_name, "Data/processed/countries.rds")
+countries_name <- readRDS("Data/processed/countries.rds")
+```
+
+Simplify polygon (MPA) data -> make smaller files:
+```{r simplify_data, include = FALSE}
+simplified <- rmapshaper::ms_simplify(AUS_MPAs, keep = 0.05)
+```
+
+Create maps for each species:
+```{r create_maps, include = FALSE}
+source("functions.R")
+
+#Species 1: Mustelus fasciatus
+Mus_MPAs <- readRDS("Data/Final MPAs/Mus_MPAs.rds")
+map01 <- create_final_map("Mustelus fasciatus", distributions, simplified, "bottomright")
+
+#Species 2: Cephaloscyllium albipinnum
+Cep_MPAs <- readRDS("Data/Final MPAs/Cep_MPAs.rds")
+map02 <- create_final_map("Cephaloscyllium albipinnum", distributions, simplified, "bottomleft")
+
+#Species 3: Isogomphodon oxyrhynchus
+Iso_MPAs <- readRDS("Data/Final MPAs/Iso_MPAs.rds")
+map03 <- create_final_map("Isogomphodon oxyrhynchus", distributions, Iso_MPAs, "topright") #Iso_MPAs read directly into function because of small size
+
+#Species 4: Glyphis garricki
+Gly_MPAs <- readRDS("Data/Final MPAs/Gly_MPAs.rds")
+map04 <- create_final_map("Glyphis garricki", distributions, simplified, "topleft")
+
+#Species 5: Carcharhinus hemiodon
+Car_MPAs <- readRDS("Data/Final MPAs/Car_MPAs.rds") #includes simplified AUS_MPAs data -> read directly into function because of small size
+map05 <- create_final_map("Carcharhinus hemiodon", distributions, Car_MPAs, "bottomleft")
+
+#Species 6: Glyphis gangeticus
+Gly_gan_MPAs <- readRDS("Data/Final MPAs/Gly_gan_MPAs.rds")
+map06 <- create_final_map("Glyphis gangeticus", distributions, Gly_gan_MPAs, "bottomright") #Gly_gan_MPAs read directly into function because of small size
+
+#Species 7: Haploblepharus kistnasamyi
+Hap_MPAs <- readRDS("Data/Final MPAs/Hap_MPAs.rds")
+map07 <- create_final_map("Haploblepharus kistnasamyi", distributions, Hap_MPAs, "bottomright")
+
+#Species 8: Sphyrna mokarran
+```
+

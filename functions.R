@@ -33,12 +33,63 @@ create_leaflet_map <- function(species_name, distributions) {
   # 
   # Create a map for each species
   #
+  # Arguments:
+  # ---
+  # species_name: Species name provided
+  # distributions: Dataframe where species_name comes from
+  #
+  crossIcon <- makeIcon(iconUrl = "Docs/Cross Marker.png", 12, 12, iconAnchorX = 6, iconAnchorY = 6)
+  
+  leaflet(data = distributions[[species_name]]) %>%
+    addTiles() %>%
+    addMarkers(lng = ~longitude, lat = ~latitude, icon = crossIcon)
+}
+
+# Used CircleMarkers before changing to CrossMarkers
+# addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 3, stroke = FALSE, 
+  # color = "gray13", fillOpacity = 0.8)
+
+find_min_max <- function(species_name, distributions) {
+  # 
+  # Find the Max and Min lats and longs to create bounding boxes
+  #
   # Argument:
   # ---
   # species_name: Species name provided
+  # distributions: Dataframe where species_name comes from
   #
-  leaflet(data = distributions[[species_name]]) %>%
-    addTiles() %>%
-    addCircleMarkers(lat = ~latitude, lng = ~longitude, radius = 6, stroke = FALSE, 
-                     color = "gray13", fillOpacity = 0.5)
-  }
+  list(
+  min_lat = min(distributions[[species_name]][,3]),
+  max_lat = max(distributions[[species_name]][,3]),
+  min_lng = min(distributions[[species_name]][,4]),
+  max_lng = max(distributions[[species_name]][,4]))  
+}
+
+create_final_map <- function(species_name, distributions, MPA, pos) {
+  # 
+  # Find the Max and Min lats and longs to create bounding boxes
+  #
+  # Argument:
+  # ---
+  # species_name: Species name provided
+  # distributions: Dataframe where species_name comes from
+  # MPA: MPA data provided
+  #
+  
+  #finding the min and max latitudes -> used in creating map bounding box
+  bounds <- find_min_max(species_name, distributions)
+  
+  #create cross Marker
+  crossIcon <- makeIcon(iconUrl = "Docs/Cross Marker.png", 12, 12, iconAnchorX = 6, iconAnchorY = 6)
+  
+  #create map
+  leaflet(options = leafletOptions(zoomControl = FALSE, minZoom = 5)) %>% 
+  addTiles() %>%
+  addMarkers(data = distributions[[species_name]], lng = ~longitude, lat = ~latitude, 
+             icon = crossIcon) %>%
+  addPolygons(data = MPA, color = "gray", weight = 1, smoothFactor = 0.5,
+              opacity = 1.0, fillOpacity = 0.5, fillColor = "tomato") %>%
+  addMiniMap(position = pos, width = 100, height = 100) %>%
+  setMaxBounds(lng1 = bounds$min_lng, lat1 = bounds$min_lat, lng2 = bounds$max_lng, lat2 = bounds$max_lat)
+}
+

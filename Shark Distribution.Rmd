@@ -156,7 +156,35 @@ my_map
 
 Plot of an MPA:
 ```{r}
-ggplot() + geom_sf(data = ABNJ_MPAs, aes(colour="orange"))
+ggplot() + 
+  geom_sf(data = URY_MPAs, aes(fill = "tomato", colour ="gray"))
+
+basemap2 <- get_map(location = c(left = -57, bottom = -35, right = -53, top = -32.5), zoom = 10, maptype = "roadmap", source = "google", force = TRUE)
+
+ggmap(basemap2) +
+  geom_sf(data = df, aes(fill = "tomato", colour ="gray"))
+
+URY_MPAs <- readRDS("Data/MPAs by country/URY_MPAs.rds")
+
+test1 <- URY_MPAs %>% purrr::map(function(df)rename(df, x = latitude, y = longitude))
+
+glimpse(URY_MPAs$geometry[[7]])
+
+mylist <- URY_MPAs$geometry
+mylist2 <- mylist[[1]]
+mylist3 <- mylist2[[1]]
+mylist4 <- mylist3[[1]]
+
+df <- data.frame(mylist4)
+
+colnames(mylist4) <- c("lon", "lat")
+
+colnames(mylist[[8]][[1]][[1]]) <- c("lon", "lat")
+
+colnames(URY_MPAs$geometry[[1]][[1]][[1]]) <- c("lon", "lat")
+
+#NEED TO KNOW WHAT COLUMN NAMES FOR LONG AND LAT ARE
+  
 ```
 
 Plot of two MPAs:
@@ -210,7 +238,7 @@ areas <- st_area(GMPA2)
 
 Convert distributions to sf objects:
 ```{r}
-distributions_all_sf <- st_as_sf(distributions_all, coords = c("longitude", "latitude"), 
+distributions_all_sf <- st_as_sf(distributions[[1]], coords = c("longitude", "latitude"), 
                  crs = 4326,  agr = "constant")
 ```
 
@@ -253,7 +281,8 @@ ggplot(GMPA2_aus_c) +
 Some plots with Mapview
 
 ```{r}
-mapview(distributions_aus, layer.name = "sharks") + mapview(GMPA2_aus_c, layer.name= "MPAs", color="orange")
+library(mapview)
+mapview(distributions_all_sf, layer.name = "Mus") + mapview(Mus_MPAs, layer.name= "MPAs", color="orange")
 
 ```
 
@@ -406,7 +435,7 @@ Final Maps
 
 ```{r}
 library(rmapshaper)
-# simplified <- rmapshaper::ms_simplify()
+simplified <- rmapshaper::ms_simplify(Mus_MPAs, keep = 0.05)
 
 # Mustelus fasciatus map
 
@@ -415,7 +444,7 @@ Mus_MPAs <- readRDS("Data/Final MPAs/Mus_MPAs.rds")
 map01 <-
 leaflet(options = leafletOptions(zoomControl = FALSE, minZoom = 5)) %>% 
   addTiles() %>%
-  addPolygons(data = Mus_MPAs, color = "gray", weight = 1, smoothFactor = 0.5,
+  addPolygons(data = simplified, color = "gray", weight = 1, smoothFactor = 0.5,
     opacity = 1.0, fillOpacity = 0.5, fillColor = "tomato") %>%
   addCircleMarkers(data = distributions[["Mustelus fasciatus"]], lat = ~latitude, lng = ~longitude, radius = 5, weight = 3, stroke = TRUE, color = "black", fillOpacity = 0.8) %>%
   addMiniMap(width = 100, height = 100) %>%
@@ -476,5 +505,62 @@ test2 <- distributions[[2]]
 leaflet() %>%
   addTiles() %>%
   addHeatmap(data = test2, lng = ~longitude, lat = ~latitude, blur = 50, gradient = "YlOrRd")
+```
+
+Density ggplot test:
+
+```{r}
+install.packages("hexbin")
+
+register_google(key = "AIzaSyDCnDtlJpnm4l9EVnkCwPWLbtFlwhH2Lhs")
+basemap <- get_map(location = c(left = 127, bottom = -44, right = 152, top = -32.5), maptype = "roadmap", source = "google", force = TRUE)
+
+test <- distributions[[3]] %>% 
+  dplyr::rename(lat = latitude, lon = longitude)
+
+shapefile_df <- ggplot2::fortify(AUS_MPAs)
+
+broom::tidy(URY_MPAs)
+
+ggmap(basemap) +
+  geom_point(data = test, col = "orange", size = 1) +
+  geom_sf(data = URY_MPAs, col = "gray", fill = "tomato")
+  stat_density_2d(data = test, aes(fill = ..level.., alpha = ..level..), bins = 50, geom = "polygon")
+
+  # geom_hex(aes(x = lon, y = lat), data = test)
+
+ggplotmap <- ggmap::ggmap(basemap2) +
+    coord_equal() +
+    labs(x = NULL, y = NULL) +
+    theme(axis.text = element_blank())
+
+ggplot() +
+  geom_hex(aes(x = lon, y = lat), data = test)
+
+test %>%
+  ggplot(aes(x = lon, y = lat)) +
+  stat_density_2d(aes(fill = ..level..), geom = "polygon")
+  
+geom_sf(data = shapefile_df, col = "gray", fill = "tomato")
+
+install.packages("mapproj")
+library(ggspatial)
+
+numeric_to_df <- data.frame(URY_MPAs$geometry[[1]][[1]][[1]])
+
+# ggplot() +
+ggplotmap +
+  ggspatial::geom_spatial_polygon(aes(x = lon, y = lat), data = numeric_to_df, fill = "tomato", colour = "black") +
+  geom_point(data = test, col = "orange", size = 1)
+  theme_void() +
+  coord_map()
+```
+
+Converting back to shp file
+
+```{r}
+URY_MPAs <- readRDS("Data/MPAs by country/URY_MPAs.rds")
+
+rgdal::writeOGR(URY_MPAs, "Data/MPAs by country", "URY_MPAs_shp", driver = "ESRI Shapefile")
 ```
 
